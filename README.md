@@ -359,11 +359,3 @@ CREATE TABLE IF NOT EXISTS titulos (
 ```
 
 ---
-
-## 6. Tecnologias Utilizadas
-
-- **PHP** (back-end, PDO para acesso ao banco)
-- **PostgreSQL** (banco de dados relacional)
-- **HTML, CSS e JavaScript** (interface e busca de capas com `fetch`)
-- **API do TMDB** (capas de filmes e séries)
-- **Git/GitHub** (versionamento)
