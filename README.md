@@ -331,4 +331,39 @@ Relacionamento **1:N** – um usuário possui vários títulos; cada título per
 | `id` | `SERIAL` | PRIMARY KEY | Identificador do título |
 | `usuario_id` | `INT` | NOT NULL, FOREIGN KEY → `usuarios(id)` ON DELETE CASCADE | Dono do título |
 | `titulo` | `VARCHAR(200)` | NOT NULL | Nome do filme ou série |
-| `tipo` | `VARCHAR(10)` |
+| `tipo` | `VARCHAR(10)` | NOT NULL, CHECK (`filme`, `serie`) | Tipo do título |
+| `status` | `VARCHAR(10)` | NOT NULL, CHECK (`quero`, `assistindo`, `assistido`) | Situação do título |
+| `nota` | `INT` | CHECK entre 1 e 10 (aceita `NULL`) | Nota dada pelo usuário |
+| `review` | `TEXT` | opcional | Comentário do usuário |
+| `capa` | `TEXT` | opcional | URL da capa (TMDB) |
+
+### 5.4 Script de criação (`schema.sql`)
+
+```sql
+CREATE TABLE IF NOT EXISTS usuarios (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    senha VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS titulos (
+    id SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    titulo VARCHAR(200) NOT NULL,
+    tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('filme', 'serie')),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('quero', 'assistindo', 'assistido')),
+    nota INT CHECK (nota BETWEEN 1 AND 10),
+    review TEXT,
+    capa TEXT
+);
+```
+
+---
+
+## 6. Tecnologias Utilizadas
+
+- **PHP** (back-end, PDO para acesso ao banco)
+- **PostgreSQL** (banco de dados relacional)
+- **HTML, CSS e JavaScript** (interface e busca de capas com `fetch`)
+- **API do TMDB** (capas de filmes e séries)
+- **Git/GitHub** (versionamento)
