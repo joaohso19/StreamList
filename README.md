@@ -82,7 +82,7 @@ sudo -u postgres psql
 CREATE USER streamlist_user WITH PASSWORD 'stream';
 ```
 
-> `stream` é uma senha de exemplo para testes. Em um ambiente real, use uma senha própria e a mesma no Passo 4.
+> `stream` é uma senha de exemplo para testes.
 
 **3 -** Crie o banco de dados tendo esse usuário como dono:
 
