@@ -1,10 +1,10 @@
 <?php
 // Conexão com o banco PostgreSQL (mesmo estilo da aula)
 // Troque os dados abaixo pelos do seu banco
-$host = "192.168.10.51";
-$dbname = "final_teste";
-$user = "joao";
-$pass = "jotinha";
+$host = "localhost";
+$dbname = "streamlist";
+$user = "streamlist_user";
+$pass = "stream";
 
 try {
     $conexao = new PDO(
