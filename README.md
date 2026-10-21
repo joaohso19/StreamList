@@ -59,7 +59,7 @@ php -m | grep -E "pdo_pgsql|curl"
 
 ```bash
 # Clone este repositório
-git clone https://github.com/joaohso19/streamlist.git](https://github.com/joaohso19/streamlist.git
+git clone https://github.com/joaohso19/streamlist.git
 
 # Acesse a pasta do projeto
 cd streamlist
