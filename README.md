@@ -159,7 +159,7 @@ $host = 'localhost';
 $port = '5432';
 $dbname = 'streamlist';
 $user = 'streamlist_user';
-$password = 'troque_esta_senha';
+$password = 'stream';
 ```
 
 > **Observação:** o usuário `streamlist_user` deve existir no PostgreSQL e ter permissão no banco `streamlist`. Não publique sua senha real no GitHub.
