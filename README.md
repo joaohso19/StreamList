@@ -66,7 +66,7 @@ git clone https://github.com/joaohso19/streamlist.git
 cd streamlist
 ```
 
-> **Importante:** os links do sistema usam o caminho `/streamlist/...` (em minúsculas). No Linux, `StreamList` e `streamlist` são pastas diferentes, por isso a pasta do projeto **precisa se chamar `streamlist`**. O nome no final do comando garante isso.
+> **Importante:** os links do sistema usam o caminho `/streamlist/...` (em minúsculas). No Linux, `StreamList` e `streamlist` são pastas diferentes, por isso a pasta do projeto **precisa se chamar `streamlist`**. O `git clone` cria a pasta com o nome que aparece no final da URL (`streamlist.git`), por isso ela já nasce em minúsculas.
 
 ### 1.3 Passo 2: Criar o banco de dados e o usuário
 
@@ -165,48 +165,14 @@ Para salvar no `nano`: `Ctrl + O`, Enter, `Ctrl + X`.
 
 **3 -** Chave da API do TMDB: ela fica na variável `$chave` do arquivo `app/tmdb.php`. Se as capas pararem de aparecer, crie uma conta gratuita em [themoviedb.org](https://www.themoviedb.org/), gere uma chave própria e substitua o valor. Sem uma chave válida o sistema continua funcionando, mas sem sugestão de capas.
 
-### 1.6 Passo 5: Iniciar o servidor
+### 1.6 Passo 5: Primeiro acesso
 
-Saia da pasta do projeto: o servidor deve ser iniciado na pasta **anterior** a `streamlist`.
-
-```bash
-cd ..
-```
-
-**Testando na própria máquina:**
-
-```bash
-php -S localhost:8000
-```
-
-Acesse `http://localhost:8000/streamlist/login/login.php`.
-
-**Em um servidor acessado pelo MobaXterm (SSH):** o `localhost` do navegador é o seu computador, não o servidor. Inicie o PHP aceitando conexões externas:
-
-```bash
-php -S 0.0.0.0:8000
-```
-
-Acesse `http://IP_DO_SERVIDOR:8000/streamlist/login/login.php`.
-
-Se a porta estiver bloqueada pelo firewall, libere-a com `sudo ufw allow 8000` ou use um **túnel SSH** do MobaXterm (*Tunneling → New SSH tunnel*, porta local `8000` para `localhost:8000` do servidor) e acesse normalmente por `localhost:8000`.
-
-Para manter o servidor ativo mesmo fechando a sessão SSH:
-
-```bash
-nohup php -S 0.0.0.0:8000 > servidor.log 2>&1 &
-```
-
-> Se o servidor já tiver Nginx ou Apache configurado com PHP apontando para `/var/www/html`, não é preciso usar o `php -S`: basta acessar `http://IP_DO_SERVIDOR/streamlist/login/login.php`.
-
-### 1.7 Passo 6: Primeiro acesso
-
-1. Abra a tela de cadastro (`/streamlist/login/cadastrar.php`).
+1. Abra a tela de cadastro (`/streamlist/login/cadastrar.php`, no endereço do seu servidor).
 2. Informe e-mail e senha e clique em **Cadastrar**.
 3. Você será redirecionado ao login; entre com a conta criada.
 4. Use **Adicionar** para incluir o primeiro filme ou série.
 
-### 1.8 Problemas comuns
+### 1.7 Problemas comuns
 
 | Erro | Causa provável | Solução |
 |---|---|---|
@@ -214,8 +180,7 @@ nohup php -S 0.0.0.0:8000 > servidor.log 2>&1 &
 | `password authentication failed` | Usuário ou senha diferentes entre o PostgreSQL e o `connect.php` | Conferir as credenciais; para redefinir: `ALTER USER streamlist_user WITH PASSWORD 'nova_senha';` |
 | `permission denied for table` / `sequence` | Permissões não concedidas | Refazer os `GRANT` do Passo 2 |
 | `Call to undefined function curl_init()` | Extensão `curl` ausente | `sudo apt install php-curl` |
-| `ERR_CONNECTION_REFUSED` no navegador | Servidor PHP parado, ou acessando `localhost` de outra máquina | Conferir se o `php -S` está rodando e usar o IP do servidor ou o túnel SSH |
-| Página 404 em `/streamlist/...` | Servidor iniciado dentro da pasta do projeto, ou pasta com nome diferente de `streamlist` | Iniciar o `php -S` na pasta anterior e renomear com `mv StreamList streamlist` |
+| Página 404 em `/streamlist/...` | Pasta do projeto com nome diferente de `streamlist` | Renomear com `mv StreamList streamlist` |
 | Capas aparecem como imagem quebrada | Arquivos `tmdb.php` e `create.js` em versões diferentes | Atualizar os dois e recarregar com `Ctrl + F5` |
 | Capas não aparecem | Chave do TMDB inválida ou servidor sem internet | Conferir `$chave` em `app/tmdb.php` e a conexão do servidor |
 
@@ -252,17 +217,160 @@ streamlist/
 
 ---
 
-## 3. Como Funciona a Busca de Capas (JavaScript)
+## 3. Integração com a API do TMDB
 
-A vitrine (`read.php`) não usa JavaScript: a busca por nome recarrega a página e o PHP monta a lista. O JavaScript é usado nas telas de **adicionar** e **editar**, para sugerir capas sem recarregar a página.
+O StreamList consome uma API externa, a do **TMDB (The Movie Database)**, para sugerir capas e o nome oficial de filmes e séries enquanto o usuário digita. Esta seção descreve a integração como um contrato: quem chama quem, com quais parâmetros, o que volta e o que acontece quando algo falha.
 
-| Arquivo | Papel |
+### 3.1 Visão geral
+
+| Item | Detalhe |
 |---|---|
-| `assets/capas.js` | Faz o `fetch` ao `tmdb.php`. Tem `buscaFilmes(nome)` e `buscaSeries(nome)` |
-| `assets/create.js` | Comportamento da tela de adicionar: mostra/esconde a nota, busca capas ao digitar, mostra as miniaturas e guarda a capa escolhida |
-| `app/tmdb.php` | Recebe o pedido do JS, consulta o TMDB com a chave da API e devolve até 6 capas |
+| API consumida | TMDB – The Movie Database (v3) |
+| Finalidade | Sugerir capas (pôsteres) e o nome oficial dos títulos |
+| Estilo / formato | REST sobre HTTPS, respostas em JSON |
+| Método HTTP | `GET` |
+| Autenticação | Chave de API (`api_key`) enviada na URL |
+| Quem chama a API | Somente o servidor, pelo arquivo `app/tmdb.php` (via cURL) |
+| Custo | Gratuita para uso não comercial, com atribuição ao TMDB |
+| Documentação oficial | https://developer.themoviedb.org/ |
 
-O JavaScript chama o `tmdb.php` (e não o TMDB direto) para que a **chave da API não fique exposta** no navegador.
+### 3.2 Arquitetura da integração
+
+A integração tem três camadas. O navegador **nunca** fala direto com o TMDB: ele fala com o `tmdb.php`, que funciona como um *proxy* (intermediário) entre o sistema e a API.
+
+```mermaid
+flowchart LR
+    A["Navegador<br/>capas.js / create.js"] -->|"GET tmdb.php?tipo=tv&q=naruto"| B["Servidor PHP<br/>app/tmdb.php"]
+    B -->|"GET /3/search/tv?api_key=...&query=naruto"| C["API do TMDB<br/>api.themoviedb.org"]
+    C -->|"JSON com results[]"| B
+    B -->|"JSON [{capa, titulo}]"| A
+    A -->|"carrega a imagem"| D["image.tmdb.org<br/>(imagens das capas)"]
+```
+
+Por que usar um intermediário:
+
+- **Segurança:** a chave da API fica no servidor e não aparece no código que o navegador baixa.
+- **Controle de acesso:** só usuários logados conseguem usar o endpoint.
+- **Resposta enxuta:** o PHP filtra a resposta grande do TMDB e devolve só o que o sistema usa (`capa` e `titulo`).
+- **Menos acoplamento:** se a API mudar, só o `tmdb.php` precisa ser ajustado.
+
+### 3.3 Autenticação (chave da API)
+
+1. Crie uma conta gratuita em [themoviedb.org](https://www.themoviedb.org/).
+2. Nas configurações da conta, abra a seção **API** e solicite uma chave (tipo de uso: pessoal/educacional).
+3. Copie a chave **v3 (API Key)** e coloque na variável `$chave` do arquivo `app/tmdb.php`.
+
+Boas práticas:
+
+- Nunca coloque a chave em arquivos JavaScript ou HTML.
+- Se o repositório for público, gere uma chave nova e evite publicar a real. Uma alternativa simples é ler a chave de uma variável de ambiente:
+
+```php
+$chave = getenv('TMDB_API_KEY') ?: 'SUA_CHAVE_AQUI';
+```
+
+### 3.4 Requisição enviada ao TMDB
+
+O `tmdb.php` monta e envia esta requisição:
+
+| Tipo do título | Endpoint do TMDB |
+|---|---|
+| Filme | `GET https://api.themoviedb.org/3/search/movie` |
+| Série | `GET https://api.themoviedb.org/3/search/tv` |
+
+Parâmetros de consulta (*query string*):
+
+| Parâmetro | Valor usado | Para que serve |
+|---|---|---|
+| `api_key` | chave do projeto | Autentica a chamada |
+| `language` | `pt-BR` | Pede os nomes em português do Brasil, quando existirem |
+| `include_adult` | `false` | Exclui conteúdo adulto dos resultados |
+| `query` | texto digitado (com `urlencode`) | O que será pesquisado |
+
+Exemplo de URL final:
+
+```
+https://api.themoviedb.org/3/search/tv?api_key=SUA_CHAVE&language=pt-BR&include_adult=false&query=naruto
+```
+
+A chamada é feita com **cURL**, que devolve o corpo da resposta como texto para o PHP converter com `json_decode`.
+
+### 3.5 Resposta do TMDB e o que o sistema aproveita
+
+A resposta do TMDB é grande. Um trecho simplificado:
+
+```json
+{
+  "page": 1,
+  "results": [
+    {
+      "id": 31910,
+      "name": "Naruto Shippuden",
+      "poster_path": "/abc123.jpg",
+      "overview": "..."
+    }
+  ]
+}
+```
+
+O sistema usa apenas três campos de cada item de `results`:
+
+| Campo do TMDB | Onde existe | Uso no StreamList |
+|---|---|---|
+| `poster_path` | filmes e séries | Caminho da imagem da capa |
+| `title` | só filmes | Nome oficial do filme |
+| `name` | só séries | Nome oficial da série |
+
+O link completo da capa é montado juntando o endereço base das imagens com o caminho recebido:
+
+```
+https://image.tmdb.org/t/p/w500 + /abc123.jpg
+→ https://image.tmdb.org/t/p/w500/abc123.jpg
+```
+
+O `w500` indica a largura da imagem (500 px). Itens **sem** `poster_path` são descartados, e no máximo **6** capas são devolvidas por busca.
+
+### 3.6 Endpoint interno: `tmdb.php` (contrato)
+
+É a "API do próprio StreamList" que o JavaScript consome.
+
+| Item | Detalhe |
+|---|---|
+| Método e caminho | `GET /streamlist/app/tmdb.php` |
+| Parâmetro `tipo` | `movie` (filme) ou `tv` (série). Qualquer outro valor é tratado como `movie` |
+| Parâmetro `q` | Texto da busca. Com menos de 2 caracteres, a resposta é `[]` |
+| Autenticação | Sessão PHP: só usuário logado (`verifica_user.php`) |
+| Formato da resposta | `application/json; charset=utf-8` |
+
+Exemplo de chamada:
+
+```
+GET /streamlist/app/tmdb.php?tipo=tv&q=naruto
+```
+
+Exemplo de resposta (`200 OK`):
+
+```json
+[
+  { "capa": "https://image.tmdb.org/t/p/w500/abc123.jpg", "titulo": "Naruto Shippuden" },
+  { "capa": "https://image.tmdb.org/t/p/w500/def456.jpg", "titulo": "Naruto" }
+]
+```
+
+Códigos de resposta:
+
+| Situação | Resposta |
+|---|---|
+| Busca com resultados | `200` e lista de itens `{capa, titulo}` |
+| Busca sem resultados, sem pôsteres ou texto muito curto | `200` e `[]` |
+| Falha ao contatar o TMDB (sem internet, DNS, etc.) | `502` e `[]` |
+
+### 3.7 Lado do navegador (JavaScript)
+
+| Arquivo | Papel na integração |
+|---|---|
+| `assets/capas.js` | Faz o `fetch` ao `tmdb.php`. Traduz `filme` → `movie` e `serie` → `tv` (`buscaFilmes` e `buscaSeries`) |
+| `assets/create.js` | Chama a busca ao digitar, mostra as miniaturas e guarda a capa escolhida no campo escondido |
 
 ```mermaid
 sequenceDiagram
@@ -274,7 +382,7 @@ sequenceDiagram
     U->>JS: digita "Naruto"
     JS->>JS: espera 400 ms sem digitar
     JS->>PHP: tmdb.php?tipo=tv&q=Naruto
-    PHP->>API: busca com a chave da API
+    PHP->>API: GET /3/search/tv (com a chave)
     API-->>PHP: resultados
     PHP-->>JS: até 6 itens {capa, titulo}
     JS->>U: mostra as miniaturas
@@ -283,16 +391,58 @@ sequenceDiagram
     U->>PHP: Salvar (formulário envia o link da capa)
 ```
 
-Formato da resposta do `tmdb.php`:
+O JavaScript só preenche o campo escondido `capa`. Quem grava no banco é o PHP, quando o formulário é enviado, e o banco guarda **apenas o link** da imagem, não o arquivo.
 
-```json
-[
-  { "capa": "https://image.tmdb.org/t/p/w500/abc123.jpg", "titulo": "Naruto" },
-  { "capa": "https://image.tmdb.org/t/p/w500/def456.jpg", "titulo": "Naruto Shippuden" }
-]
-```
+### 3.8 Tratamento de erros
 
-O banco guarda **apenas o link** da capa (texto), não a imagem. O JS só preenche o campo escondido `capa`; quem grava no banco é o PHP, quando o formulário é enviado.
+| Situação | O que acontece |
+|---|---|
+| Menos de 2 caracteres digitados | O JavaScript nem faz a busca |
+| Nenhum resultado ou nenhum pôster | Aparece "Nenhuma capa encontrada para este nome." |
+| Chave inválida | O TMDB responde com um erro sem `results`; o `tmdb.php` devolve `[]` e aparece "Nenhuma capa encontrada..." |
+| TMDB fora do ar ou servidor sem internet | O `tmdb.php` responde `502` com `[]`; o `capas.js` trata como lista vazia |
+| Falha de rede entre o navegador e o servidor | O `try/catch` do JavaScript mostra "Não foi possível buscar as capas agora." |
+| Usuário digita outra coisa durante a busca | A resposta antiga é descartada (controle por `numeroBusca`) |
+
+Em **todos** os casos o formulário continua funcionando e o título pode ser salvo sem capa.
+
+### 3.9 Limites, segurança e termos de uso
+
+- **Volume de requisições:** a API tem limite de uso. O sistema reduz as chamadas exigindo 2 caracteres no mínimo e esperando 400 ms após a última tecla (*debounce*).
+- **Verificação de SSL:** no `tmdb.php`, `CURLOPT_SSL_VERIFYPEER` está como `false`, o que desativa a conferência do certificado do TMDB. É aceitável para testes, mas em produção o ideal é `true` (e manter os certificados do servidor atualizados com `sudo apt install ca-certificates`).
+- **Sem limite de tempo:** a chamada cURL não define *timeout*. Se o TMDB demorar a responder, a requisição pode ficar pendurada. Uma linha resolve:
+
+  ```php
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  ```
+
+- **Atribuição obrigatória:** o uso gratuito da API exige citar o TMDB como fonte. Os termos pedem o logo do TMDB e o aviso abaixo em uma área de "Sobre" ou "Créditos" do sistema, com o logo menos destacado que a identidade do StreamList:
+
+  > This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+  Sugestão: colocar esse aviso no `includes/footer.php`.
+- **Uso não comercial:** o StreamList é um projeto acadêmico/pessoal. Para fins comerciais seria necessária uma licença do TMDB.
+- **Dependência das imagens:** como o banco guarda só o link, a capa depende de o endereço continuar válido no `image.tmdb.org`.
+
+### 3.10 Como testar a integração
+
+1. **Endpoint interno** (logado no sistema), abra no navegador:
+
+   ```
+   /streamlist/app/tmdb.php?tipo=tv&q=naruto
+   ```
+
+   Deve aparecer uma lista JSON com `capa` e `titulo`.
+
+2. **Chave e conexão do servidor**, direto pelo terminal:
+
+   ```bash
+   curl "https://api.themoviedb.org/3/search/tv?api_key=SUA_CHAVE&language=pt-BR&query=naruto"
+   ```
+
+   Se vier um JSON com `results`, a chave e a internet do servidor estão funcionando. Se vier um erro com `status_message`, a chave está inválida.
+
+3. **Navegador:** com `F12`, aba **Network**, clique na chamada `tmdb.php?...` para ver o que o JavaScript recebeu.
 
 ---
 
