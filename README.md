@@ -58,7 +58,7 @@ php -m | grep -E "pdo_pgsql|curl"
 
 ```bash
 # Clone este repositório (troque pela URL do seu repositório)
-git clone https://github.com/SEU-USUARIO/streamlist.git
+git clone https://github.com/joaohso19/streamlist.git
 
 # Acesse a pasta do projeto
 cd streamlist
@@ -79,7 +79,7 @@ sudo -u postgres psql
 2. Dentro do `psql`, crie o usuário da aplicação:
 
 ```sql
-CREATE USER streamlist_user WITH PASSWORD 'troque_esta_senha';
+CREATE USER streamlist_user WITH PASSWORD 'stream';
 ```
 
 3. Crie o banco de dados tendo esse usuário como dono:
